@@ -15,3 +15,9 @@ variable "azs" {
  description = "Availability Zones"
  default     = ["eu-central-1a", "eu-central-1b", "eu-central-1c"]
 }
+
+variable "ssh-key-name" {
+    type = string
+    description = "Name of the SSH key"
+    default = "ec2-stable_diffusion"
+}

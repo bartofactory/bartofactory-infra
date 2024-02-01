@@ -66,19 +66,57 @@ resource "aws_security_group" "gpu_instance_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Consenti l'accesso SSH da qualsiasi indirizzo IP
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port       = 0
+    to_port         = 65535
+    protocol        = "tcp"
+    cidr_blocks     = ["0.0.0.0/0"]
   }
 }
 
-resource "aws_instance" "gpu_instance" {
-  ami           = "ami-0faab6bdbac9486fb"
-  instance_type = "g4dn.xlarge"
+resource "aws_key_pair" "ec2_stable_diffusion_key" {
+	key_name = var.ssh-key-name
+	public_key = "${file("~/.ssh/ec2-stable_diffusion.pub")}"
+}
+resource "aws_ebs_volume" "myebs" {
+ availability_zone = var.azs[0]
+ size              = 40
+ 
+ tags = {
+   Name = "MyEBS"
+ }
+}
 
-  # Configurazione della rete
-  vpc_security_group_ids = [aws_security_group.gpu_instance_sg.id] # Sostituisci con il tuo ID del gruppo di sicurezza
-  subnet_id              = aws_subnet.private_subnets[0].id # Sostituisci con il tuo ID della subnet
+# Creating Ubuntu EC2 instance
+resource "aws_instance" "stable_diffusion_instance" {
+  ami             = "ami-0faab6bdbac9486fb"
+  instance_type   = "g4ad.xlarge"
+  key_name        = var.ssh-key-name
+  vpc_security_group_ids = [aws_security_group.gpu_instance_sg.id]
+  
+  
+  subnet_id                   = aws_subnet.public_subnets[0].id
+  associate_public_ip_address = true
 
+#   user_data = <<-EOF
+#   #!/bin/bash -ex
+
+#   amazon-linux-extras install nginx1 -y
+#   echo "<h1>$(curl https://api.kanye.rest/?format=text)</h1>" >  /usr/share/nginx/html/index.html 
+#   systemctl enable nginx
+#   systemctl start nginx
+#   EOF
+  
   tags = {
-    Name = "GPU-Instance"
+    Name = "stable_diffusion"
   }
+}
+
+resource "aws_volume_attachment" "ebs_att" {
+ device_name = "/dev/sdh"
+ volume_id   = aws_ebs_volume.myebs.id
+ instance_id = aws_instance.stable_diffusion_instance.id
 }
